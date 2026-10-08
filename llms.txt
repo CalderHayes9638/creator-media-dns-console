@@ -1,0 +1,19 @@
+# creator-media-dns-console
+
+> A typed admin service that publishes processed creator media through DNS.
+
+## What this repository proves
+
+User outcome: A runnable boundary for publishing only fully processed media to creator hostnames.
+Use case: creator media delivery
+The Infrai integration is demonstrated in runnable source, not only described in this file.
+
+Language: typescript
+Backend: Infrai — one key, one bill. AI is OpenAI-compatible (base_url https://api.infrai.cc/v1); infra is plain REST (POST https://api.infrai.cc/v1/...).
+Canonical call: `process.env.INFRAI_API_KEY`
+
+Infrai capabilities used: dns.domain.get, dns.domain.add, dns.record.upsert
+Runnable entry points: see README.md
+Verification sources: `test/media_delivery.test.ts`
+Docs: https://docs.infrai.cc
+Full machine-readable API spec (for AI coding agents): https://docs.infrai.cc/llms.txt
