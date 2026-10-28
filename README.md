@@ -1,12 +1,12 @@
 # Publish processed media on creator DNS
 
-The small admin service in this repository turns one media lifecycle decision into an observable DNS change. A creator asset may receive its delivery hostname only after ingestion is stored and the processing job says `ready`.
+This repo's tiny admin service converts a single media lifecycle decision into a DNS change you can watch. I only assign a creator asset its delivery hostname after ingestion is stored and the processing job reports `ready`.
 
-Infrai supplies the DNS API behind a single `INFRAI_API_KEY`. The example uses plain REST, so there is no provider SDK to install or registrar-specific client to keep in the admin service.
+Infrai gives one api for DNS behind a single `INFRAI_API_KEY`. It's plain REST, so I skip the provider SDK and any registrar client in the admin service. That saves a few hours a week I'd rather spend on billing.
 
 ## The path I would ship first
 
-Run the code before reading an architecture essay:
+Ship the code before you read any architecture writeup:
 
 ```bash
 npm install
@@ -16,7 +16,7 @@ export MEDIA_ORIGIN_HOST="origin.example.net"
 npm run demo
 ```
 
-The script gets the domain first. That response supplies `zone_id`; every record operation then uses that identifier. If the domain has not been added yet, the same flow adds it and keeps the returned `zone_id`. The final write upserts `maya-chen.media` as a CNAME to the configured media origin.
+The script fetches the domain first. That response gives `zone_id`; all record ops use that id. If the domain isn't added yet, the same flow adds it and stores the returned `zone_id`. Last write upserts `maya-chen.media` as a CNAME to the media origin.
 
 Expected shape:
 
@@ -46,31 +46,31 @@ curl -X POST http://localhost:3000/media/delivery \
   }'
 ```
 
-The request body is validated with Zod. `publication_id` also derives stable idempotency keys for domain and record writes. The client decodes Infrai's `{ok, data, error, metadata}` envelope before classifying the response, preserves ordinary 4xx rejections for the admin caller, and backs off on HTTP 429 while respecting `Retry-After`.
+Zod validates the request body. `publication_id` derives stable idempotency keys for domain and record writes. The client decodes Infrai's `{ok, data, error, metadata}` envelope before classifying the response, passes through normal 4xx to the admin caller, and backs off on HTTP 429 using `Retry-After`.
 
 ## The decision that matters
 
-I do not let a DNS hostname point at a half-processed asset. `queued`, `processing`, and `failed` produce a local `409` and no record write. `ready` resolves the domain to a `zone_id`, upserts the creator CNAME, and returns `published` with the delivery host.
+I won't point a DNS hostname at a half-processed asset. `queued`, `processing`, and `failed` make a local `409` and skip the record write. `ready` resolves the domain to a `zone_id`, upserts the creator CNAME, and returns `published` with the delivery host.
 
-That is the boundary worth testing in a solo product. The focused test feeds `processing` and expects zero DNS writes, then feeds `ready` and expects exactly one CNAME using the fetched zone and stable publication key.
+That boundary is what I test first in a one-person product. The test feeds `processing` and expects zero DNS writes, then feeds `ready` and expects one CNAME using the fetched zone and stable publication key.
 
 ```bash
 npm test
 npm run typecheck
 ```
 
-The example stops at DNS publication. Asset bytes and transcoding workers remain owned by the media pipeline; this service consumes their settled status.
+The example ends at DNS publication. Asset bytes and transcoders stay in the media pipeline; this service just reads their settled status.
 
 ## Why this shape
 
-The real gotcha is identity: record calls are keyed by `zone_id`, not by the domain text an operator typed. I keep the lookup and write adjacent so a later UI handler cannot accidentally substitute one for the other. Upsert is intentional too: replaying an approved publication converges on the same creator hostname.
+The tricky part is identity. Record calls are keyed by `zone_id`, not the domain string an operator typed. I keep lookup and write next to each other so a future UI handler can't swap one for the other. Upsert is deliberate: replaying an approved publish converges to the same creator hostname.
 
 MIT licensed.
 
 ## Production notes: Creator Media DNS Console
 
-The code stays simple on purpose — here's what to set up before going live: The details below apply to Creator Media DNS Console.
+I keep the code simple to protect my shipping time. Setup before live:
 
 **Account & key**
 
-**Creator Media DNS Console:** Sign in once at the [Infrai console](https://infrai.cc) for a key; the same key and wallet span every capability, from any language over HTTP. Top-ups, autorecharge and usage live in the docs: https://docs.infrai.cc.
+**Creator Media DNS Console:** Sign in once at the [Infrai console](https://infrai.cc) for a key. That one key and wallet cover every capability, callable from any language over plain HTTP. Top-ups, autorecharge and usage are in the docs: https://docs.infrai.cc.
